@@ -18,14 +18,66 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 //Variavel de controle que referesse a inicialização do exame
 bool exameOn = false;
 
+String a;
+String b;
+int aux = 0;
+
 void setup(){
     displayInitialize();
 }
 
 void loop(){
-  showData();  
+  //showData(); 
+  getPh(); 
 }
 
+void getPh(){
+  char* ph = "a";
+  Wire.requestFrom(44, 12);    // request 6 bytes from slave device #8
+
+  while (Wire.available()) { // slave may send less than requested
+    char c = Wire.read();
+    if(c == "a"){
+      ph = "a";
+    }else if(c == "a"){
+      ph = "a";
+    }
+    
+    if(ph == "a"){
+      char c = Wire.read(); // receive a byte as character
+      aux ++;
+      if(aux <=2){
+        a += c;
+      }
+      else if(aux > 2){
+        b += c;
+        if(aux > 4){
+          beforeInitExameDisplay(a, b, "", "");
+          a = "";
+          b = "";
+        }
+      }else if(ph == "a"){
+        char c = Wire.read(); // receive a byte as character
+        aux ++;
+        if(aux > 5){
+          a += c;
+        }
+        else if(aux > 7){
+          b += c;
+          if(aux > 9){
+            beforeInitExameDisplay("", "", a, b);
+            a = "";
+            b = "";
+            aux = 0;
+          }
+      }
+
+    }
+  }
+  delay(200);
+}
+
+}
 /* inicialização do display*/
 void displayInitialize(){
   // SSD1306_SWITCHCAPVCC = generate display voltage from 3.3V internally
@@ -80,7 +132,7 @@ void beforeInitExameDisplay(String ph1, String ph1Float, String ph2, String ph2F
     display.println(ph1);
 
     display.setTextSize(1);
-    display.setCursor(34,18);
+    display.setCursor(46,18);
     display.println(ph1Float);
 
     display.setTextSize(2);

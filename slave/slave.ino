@@ -1,4 +1,25 @@
 #include <Wire.h>
+#include <SPI.h>
+#include <SD.h>
+#include "RTClib.h"
+RTC_DS1307 rtc;
+
+const int chipSelect = 10;
+File dataFile;
+
+
+
+#define MY_ADDRESS 44
+
+enum {
+    CMD_READ_PH1 = 1,
+    CMD_READ_PH2  = 2,
+    CMD_READ_HOUR = 3,
+    CMD_CALIBRATE_PH7 = 4,
+    CMD_CALIBRATE_PH1 = 5,
+    };
+
+char command;
 
 const int NumReadings = 10;                    // number of reading
 int Index_1 = 0;                                 // index
@@ -31,10 +52,41 @@ double Ph2Value = 0;
 
 void setup()
 {
-  Wire.begin(44);                
+  
+  Serial.begin(9600);
+  command = 0;
+  Serial.println("teste");
+      //----------------Inicializa o RTC-------------------   
+  if (! rtc.begin()) {
+    Serial.println("Couldn't find RTC");
+    Serial.flush();
+    abort();
+  }
+
+  if (! rtc.isrunning()) {
+    Serial.println("RTC is NOT running, let's set the time!");
+    // When time needs to be set on a new device, or after a power loss, the
+    // following line sets the RTC to the date & time this sketch was compiled
+    rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+    // This line sets the RTC with an explicit date & time, for example to set
+    // January 21, 2014 at 3am you would call:
+    // rtc.adjust(DateTime(2014, 1, 21, 3, 0, 0));
+  }
+    //-----------------------------------
+
+        //----------Inicializa o Modulo SD Card--------------
+  Serial.println("Inicializando SD card...");
+  if (!SD.begin(chipSelect)) {
+    Serial.println("Inicializacao falhou!");
+    return;
+  }
+  
+  Serial.println("Inicializacao finalizada.");
+  Wire.begin(MY_ADDRESS);                
   Wire.onRequest(requestEvent); 
   Wire.onReceive(receiveEvent); 
-  Serial.begin(9600);
+
+
 
   for (int PhThisReading = 0; PhThisReading < NumReadings; PhThisReading++){        // initialize all the Ph readings to 0:
      Ph1Readings[PhThisReading] = 0;
@@ -47,11 +99,60 @@ void setup()
 
 void loop(){
   reading_1();
+  reading_2();
+  delay(500);
 }
 
+// void saveData(){
+//   //Send do SDCard
+    
+
+//     dataFile = SD.open("dataPH.txt", FILE_WRITE);  //define 
+  
+//     // if the file opened okay, write to it:
+//      // if the file opened okay, write to it:
+//     if (dataFile) {
+      
+//       //Send to data.txt
+
+//       dataFile.print(now.hour(), DEC);
+//       dataFile.print(':');
+//       dataFile.print(now.minute(), DEC);
+//       dataFile.print(':');
+//       dataFile.print(now.second(), DEC);
+//       dataFile.print(";");
+//       dataFile.print(Ph1Value);
+//       dataFile.print(";");
+//       dataFile.println(Ph2Value);
+      
+//       //Send to Serial
+//       Serial.print(now.hour(), DEC);
+//       Serial.print(':');
+//       Serial.print(now.minute(), DEC);
+//       Serial.print(':');
+//       Serial.print(now.second(), DEC);
+//       Serial.print("; ");
+//       Serial.print(Ph1Value);
+//       Serial.print("; ");
+//       Serial.println(Ph2Value);
+
+//       // close the file data.txt:
+//       dataFile.close();
+//     }
+// }
+
 void requestEvent() {
-  Serial.println(String(Ph1Value).c_str());
-  Wire.write(String(Ph1Value).c_str());
+
+  switch (command)
+  {
+    case CMD_READ_PH1:      sendSensor (1); break;  
+    case CMD_READ_PH2: sendSensor (2); break;
+    case CMD_CALIBRATE_PH7: calibratePh7();
+    case CMD_CALIBRATE_PH1: calibratePh1();
+  }
+  
+  //Serial.println(String(Ph1Value).c_str());
+  //Wire.write(String(Ph1Value).c_str());
 }
 
 float reading_1(){                                 // Reading PH Data
@@ -103,8 +204,25 @@ int reading_2(){                                 // Reading PH Data
 
 }
 
-
-void receiveEvent(int howMany)
+void sendSensor (const byte channel)
 {
-
+  switch (channel){
+    case 1: Wire.write(String(Ph1Value).c_str()); break;
+    case 2: Wire.write(String(Ph2Value).c_str()); break;
+  }
 }
+
+void calibratePh7(){
+  Ph7Ch1Reading = Ph1Average;
+  Ph7Ch2Reading = Ph2Average;
+}
+
+void calibratePh1(){
+  Ph4Ch1Reading = Ph1Average;
+  Ph4Ch2Reading = Ph2Average;
+}
+
+void receiveEvent (int howMany)
+{
+  command = Wire.read ();
+} 
